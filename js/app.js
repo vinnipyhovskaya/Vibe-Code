@@ -48,6 +48,7 @@ function toggleTheme() {
     if (toggle) {
         toggle.innerHTML = next === 'light' ? '<i class="fas fa-moon"></i>' : '<i class="fas fa-sun"></i>';
     }
+    if (typeof checkAndUnlockAchievements === 'function') checkAndUnlockAchievements();
 }
 
 // ========================================
@@ -140,6 +141,9 @@ if (document.getElementById('dashboard-layout') || document.getElementById('chat
     let completedModules = [];
     let isLoading = false;
     let achievementsExpanded = false;
+    window.messageCount = 0;
+    window.statsOpenedCount = 0;
+    window.currentModuleId = null;
 
     const modules = [
         { id: 1, name: 'Структура промпта', icon: 'fas fa-cube', completedIcon: 'fas fa-check-circle' },
@@ -159,22 +163,278 @@ if (document.getElementById('dashboard-layout') || document.getElementById('chat
         { module_name: 'Комплексный промпт', score: 0, max_score: 30, completed: false }
     ];
 
-    let achievements = [
-        { id: 1, name: 'Первый шаг', icon: 'fas fa-flag-checkered', desc: 'Начать обучение', rarity: 'common', unlocked: false },
-        { id: 2, name: 'Знаток модулей', icon: 'fas fa-book', desc: 'Пройти 3 модуля', rarity: 'common', unlocked: false },
-        { id: 3, name: 'Новичок', icon: 'fas fa-seedling', desc: 'Достичь уровня novice', rarity: 'common', unlocked: true },
-        { id: 4, name: 'В зоне темпа', icon: 'fas fa-fire', desc: 'Набрать 50 очков', rarity: 'rare', unlocked: false },
-        { id: 5, name: 'Мастер промптов', icon: 'fas fa-gem', desc: 'Набрать 100 очков', rarity: 'epic', unlocked: false },
-        { id: 6, name: 'Легенда', icon: 'fas fa-trophy', desc: 'Набрать 200 очков', rarity: 'legendary', unlocked: false },
-        { id: 7, name: 'Меткий стрелок', icon: 'fas fa-crosshairs', desc: 'Правильно ответить на 10 вопросов', rarity: 'rare', unlocked: false },
-        { id: 8, name: 'Ранний птенец', icon: 'fas fa-rocket', desc: 'Завершить 5 заданий досрочно', rarity: 'epic', unlocked: false },
-        { id: 9, name: 'Гуру цепочек', icon: 'fas fa-brain', desc: 'Освоить Chain-of-thought', rarity: 'rare', unlocked: false },
-        { id: 10, name: 'Идеальный промпт', icon: 'fas fa-wand-magic', desc: 'Создать промпт на 100%', rarity: 'legendary', unlocked: false },
-        { id: 11, name: 'Инженер', icon: 'fas fa-microchip', desc: 'Пройти все модули', rarity: 'epic', unlocked: false },
-        { id: 12, name: 'Выпускник', icon: 'fas fa-graduation-cap', desc: 'Завершить полный курс', rarity: 'legendary', unlocked: false }
-    ];
+let achievements = [
+    { id: 1, name: 'Первый шаг', icon: 'fas fa-flag-checkered', desc: 'Начать обучение', rarity: 'common', unlocked: false },
+    { id: 2, name: 'Новичок', icon: 'fas fa-seedling', desc: 'Достичь уровня novice', rarity: 'common', unlocked: true },
+    { id: 3, name: 'Любопытный', icon: 'fas fa-comments', desc: 'Отправить 10 сообщений', rarity: 'common', unlocked: false },
+    { id: 4, name: 'Исследователь', icon: 'fas fa-brain', desc: 'Отправить 25 сообщений', rarity: 'rare', unlocked: false },
+    { id: 5, name: 'Эрудит', icon: 'fas fa-book', desc: 'Отправить 50 сообщений', rarity: 'epic', unlocked: false },
+    { id: 6, name: 'В зоне темпа', icon: 'fas fa-fire', desc: 'Достичь уровня intermediate', rarity: 'rare', unlocked: false },
+    { id: 7, name: 'Мастер промптов', icon: 'fas fa-gem', desc: 'Достичь уровня expert', rarity: 'epic', unlocked: false },
+    { id: 8, name: 'Первая ступень', icon: 'fas fa-layer-group', desc: 'Пройти 1 модуль', rarity: 'common', unlocked: false },
+    { id: 9, name: 'Середина пути', icon: 'fas fa-chart-line', desc: 'Пройти 3 модуля', rarity: 'rare', unlocked: false },
+    { id: 10, name: 'Инженер промптов', icon: 'fas fa-microchip', desc: 'Пройти 6 модулей', rarity: 'epic', unlocked: false },
+    { id: 11, name: 'Выпускник', icon: 'fas fa-graduation-cap', desc: 'Пройти все модули и набрать 150+ очков', rarity: 'legendary', unlocked: false },
+    { id: 12, name: 'Мастер контекста', icon: 'fas fa-paintbrush', desc: 'Пройти модуль «Мастер контекста»', rarity: 'epic', unlocked: false },
+    { id: 13, name: 'Цепной пёс', icon: 'fas fa-link', desc: 'Пройти модуль Chain-of-thought', rarity: 'rare', unlocked: false },
+    { id: 14, name: 'Правило 80/20', icon: 'fas fa-chart-simple', desc: 'Набрать 80 очков', rarity: 'rare', unlocked: false },
+    { id: 15, name: 'Стабильность', icon: 'fas fa-shield', desc: 'Набрать 200 очков', rarity: 'epic', unlocked: false },
+    { id: 16, name: 'Легенда', icon: 'fas fa-trophy', desc: 'Набрать 500 очков', rarity: 'legendary', unlocked: false },
+    { id: 17, name: 'Статистик', icon: 'fas fa-chart-pie', desc: 'Открыть статистику 1 раз', rarity: 'common', unlocked: false },
+    { id: 18, name: 'Аналитик', icon: 'fas fa-chart-column', desc: 'Открыть статистику 5 раз', rarity: 'rare', unlocked: false },
+    { id: 19, name: 'Тёмная сторона', icon: 'fas fa-moon', desc: 'Переключиться на тёмную тему', rarity: 'common', unlocked: false },
+    { id: 20, name: 'Светлая сторона', icon: 'fas fa-sun', desc: 'Переключиться на светлую тему', rarity: 'common', unlocked: false }
+];
 
     // Уведомление
+    function showAchievementUnlock(name, desc) {
+        const notif = document.createElement('div');
+        notif.className = 'achievement-unlock-notification';
+        notif.innerHTML = `
+            <i class="fas fa-trophy" style="color: #FFC800; font-size: 24px;"></i>
+            <div class="achievement-unlock-content">
+                <div class="achievement-unlock-title">🏆 Достижение получено!</div>
+                <div class="achievement-unlock-name">${name}</div>
+                <div class="achievement-unlock-desc">${desc}</div>
+            </div>
+        `;
+        notif.style.cssText = `
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: var(--bg-secondary);
+            border-left: 4px solid #FFC800;
+            border-radius: 12px;
+            padding: 14px 20px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            z-index: 1001;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+            animation: slideInRight 0.3s ease;
+            border: 1px solid var(--border-color);
+            max-width: 350px;
+        `;
+        document.body.appendChild(notif);
+        setTimeout(() => {
+            notif.style.animation = 'slideOutRight 0.3s ease';
+            setTimeout(() => notif.remove(), 300);
+        }, 4000);
+    }
+
+    // Проверка и разблокировка всех достижений
+    function checkAndUnlockAchievements() {
+        let changed = false;
+        
+        const messagesSent = window.messageCount || 0;
+        const completedCount = completedModules.length;
+        const statsOpened = window.statsOpenedCount || 0;
+        const currentTheme = document.documentElement.getAttribute('data-theme');
+        
+        // 1. Первый шаг - начать обучение
+        if (!achievements[0].unlocked && messagesSent > 0) {
+            achievements[0].unlocked = true;
+    	    achievements[0].unlockedAt = Date.now();
+            changed = true;
+            showAchievementUnlock('Первый шаг', 'Вы начали обучение! 🎯');
+        }
+        
+        // 2. Новичок (уже разблокировано)
+        if (!achievements[1].unlocked) {
+            achievements[1].unlocked = true;
+   	    achievements[0].unlockedAt = Date.now();
+            changed = true;
+        }
+        
+        // 3. Любопытный - 10 сообщений
+        if (!achievements[2].unlocked && messagesSent >= 10) {
+            achievements[2].unlocked = true;
+   	    achievements[0].unlockedAt = Date.now();
+            changed = true;
+            showAchievementUnlock('Любопытный', 'Отправлено 10 сообщений! 💬');
+        }
+        
+        // 4. Исследователь - 25 сообщений
+        if (!achievements[3].unlocked && messagesSent >= 25) {
+            achievements[3].unlocked = true;
+   	    achievements[0].unlockedAt = Date.now();
+            changed = true;
+            showAchievementUnlock('Исследователь', 'Отправлено 25 сообщений! 🔍');
+        }
+        
+        // 5. Эрудит - 50 сообщений
+        if (!achievements[4].unlocked && messagesSent >= 50) {
+            achievements[4].unlocked = true;
+   	    achievements[0].unlockedAt = Date.now();
+            changed = true;
+            showAchievementUnlock('Эрудит', 'Отправлено 50 сообщений! 📚');
+        }
+        
+        // 6. В зоне темпа - уровень intermediate
+        if (!achievements[5].unlocked && currentLevel === 'intermediate') {
+            achievements[5].unlocked = true;
+   	    achievements[0].unlockedAt = Date.now();
+            changed = true;
+            showAchievementUnlock('В зоне темпа', 'Достигнут уровень Intermediate! 🔥');
+        }
+        
+        // 7. Мастер промптов - уровень expert
+        if (!achievements[6].unlocked && currentLevel === 'expert') {
+            achievements[6].unlocked = true;
+   	    achievements[0].unlockedAt = Date.now();
+            changed = true;
+            showAchievementUnlock('Мастер промптов', 'Достигнут уровень Expert! 💎');
+        }
+        
+        // 8. Первая ступень - 1 модуль
+        if (!achievements[7].unlocked && completedCount >= 1) {
+            achievements[7].unlocked = true;
+   	    achievements[0].unlockedAt = Date.now();
+            changed = true;
+            showAchievementUnlock('Первая ступень', 'Пройден 1 модуль! 🎓');
+        }
+        
+        // 9. Середина пути - 3 модуля
+        if (!achievements[8].unlocked && completedCount >= 3) {
+            achievements[8].unlocked = true;
+   	    achievements[0].unlockedAt = Date.now();
+            changed = true;
+            showAchievementUnlock('Середина пути', 'Пройдено 3 модуля! 📊');
+        }
+        
+        // 10. Инженер промптов - 6 модулей
+        if (!achievements[9].unlocked && completedCount >= 6) {
+            achievements[9].unlocked = true;
+   	    achievements[0].unlockedAt = Date.now();
+            changed = true;
+            showAchievementUnlock('Инженер промптов', 'Пройдены все модули! 🎯');
+        }
+        
+        // 11. Выпускник - все модули + 150+ очков
+        if (!achievements[10].unlocked && completedCount >= 6 && currentScore >= 150) {
+            achievements[10].unlocked = true;
+   	    achievements[0].unlockedAt = Date.now();
+            changed = true;
+            showAchievementUnlock('Выпускник', 'Курс пройден на отлично! 🎓✨');
+        }
+        
+        // 12. Мастер контекста - модуль 5
+        if (!achievements[11].unlocked && completedModules.includes(5)) {
+            achievements[11].unlocked = true;
+   	    achievements[0].unlockedAt = Date.now();
+            changed = true;
+            showAchievementUnlock('Мастер контекста', 'Модуль «Мастер контекста» пройден! 🎨');
+        }
+        
+        // 13. Цепной пёс - модуль 4 (Chain-of-thought)
+        if (!achievements[12].unlocked && completedModules.includes(4)) {
+            achievements[12].unlocked = true;
+   	    achievements[0].unlockedAt = Date.now();
+            changed = true;
+            showAchievementUnlock('Цепной пёс', 'Модуль Chain-of-thought пройден! 🔗');
+        }
+        
+        // 14. Правило 80/20 - 80 очков
+        if (!achievements[13].unlocked && currentScore >= 80) {
+            achievements[13].unlocked = true;
+   	    achievements[0].unlockedAt = Date.now();
+            changed = true;
+            showAchievementUnlock('Правило 80/20', 'Набрано 80 очков! 📈');
+        }
+        
+        // 15. Стабильность - 200 очков
+        if (!achievements[14].unlocked && currentScore >= 200) {
+            achievements[14].unlocked = true;
+   	    achievements[0].unlockedAt = Date.now();
+            changed = true;
+            showAchievementUnlock('Стабильность', 'Набрано 200 очков! 🛡️');
+        }
+        
+        // 16. Легенда - 500 очков
+        if (!achievements[15].unlocked && currentScore >= 500) {
+            achievements[15].unlocked = true;
+   	    achievements[0].unlockedAt = Date.now();
+            changed = true;
+            showAchievementUnlock('Легенда', 'Набрано 500 очков! 🏆');
+        }
+        
+        // 17. Статистик - открыть статистику 1 раз
+        if (!achievements[16].unlocked && statsOpened >= 1) {
+            achievements[16].unlocked = true;
+   	    achievements[0].unlockedAt = Date.now();
+            changed = true;
+            showAchievementUnlock('Статистик', 'Статистика открыта! 📊');
+        }
+        
+        // 18. Аналитик - открыть статистику 5 раз
+        if (!achievements[17].unlocked && statsOpened >= 5) {
+            achievements[17].unlocked = true;
+   	    achievements[0].unlockedAt = Date.now();
+            changed = true;
+            showAchievementUnlock('Аналитик', 'Статистика открыта 5 раз! 📈');
+        }
+        
+        // 19. Тёмная сторона - тёмная тема
+        if (!achievements[18].unlocked && currentTheme === 'dark') {
+            achievements[18].unlocked = true;
+   	    achievements[0].unlockedAt = Date.now();
+            changed = true;
+            showAchievementUnlock('Тёмная сторона', 'Включена тёмная тема! 🌙');
+        }
+        
+        // 20. Светлая сторона - светлая тема
+        if (!achievements[19].unlocked && currentTheme === 'light') {
+            achievements[19].unlocked = true;
+   	    achievements[0].unlockedAt = Date.now();
+            changed = true;
+            showAchievementUnlock('Светлая сторона', 'Включена светлая тема! ☀️');
+        }
+        
+        if (changed) {
+            updateDashboardUI();
+            saveProgressToLocalStorage(); // сохраняем прогресс
+        }
+    }
+
+    // Функция сохранения прогресса
+    function saveProgressToLocalStorage() {
+        try {
+            localStorage.setItem('user_score', currentScore);
+            localStorage.setItem('user_level', currentLevel);
+            localStorage.setItem('completed_modules', JSON.stringify(completedModules));
+            localStorage.setItem('achievements', JSON.stringify(achievements));
+            localStorage.setItem('progress_data', JSON.stringify(progressData));
+            localStorage.setItem('message_count', window.messageCount);
+            localStorage.setItem('stats_opened_count', window.statsOpenedCount);
+        } catch(e) {}
+    }
+    
+    // Функция загрузки прогресса
+    function loadProgressFromLocalStorage() {
+        try {
+            const savedScore = localStorage.getItem('user_score');
+            if (savedScore) currentScore = parseInt(savedScore);
+            
+            const savedLevel = localStorage.getItem('user_level');
+            if (savedLevel) currentLevel = savedLevel;
+            
+            const savedModules = localStorage.getItem('completed_modules');
+            if (savedModules) completedModules = JSON.parse(savedModules);
+            
+            const savedAchievements = localStorage.getItem('achievements');
+            if (savedAchievements) achievements = JSON.parse(savedAchievements);
+            
+            const savedProgress = localStorage.getItem('progress_data');
+            if (savedProgress) progressData = JSON.parse(savedProgress);
+            
+            const savedMsgCount = localStorage.getItem('message_count');
+            if (savedMsgCount) window.messageCount = parseInt(savedMsgCount);
+            
+            const savedStatsCount = localStorage.getItem('stats_opened_count');
+            if (savedStatsCount) window.statsOpenedCount = parseInt(savedStatsCount);
+        } catch(e) {}
+    }
+
     function showScoreNotification(points, totalScore) {
         const notif = document.createElement('div');
         notif.className = 'score-notification';
@@ -188,6 +448,8 @@ if (document.getElementById('dashboard-layout') || document.getElementById('chat
 
     // Обновление модалки статистики
     function updateStatsModal() {
+        window.statsOpenedCount = (window.statsOpenedCount || 0) + 1;
+        checkAndUnlockAchievements();
         const userName = document.getElementById('user-name');
         if (userName) document.getElementById('stats-username').textContent = userName.textContent;
         const daysCount = Math.floor(Math.random() * 5) + 1;
@@ -216,30 +478,47 @@ document.getElementById('stat-days').textContent = daysCount + (daysCount === 1 
     }
 
     function renderAchievements() {
-        const container = document.getElementById('achievements-container');
-        if (!container) return;
-        const unlocked = achievements.filter(a => a.unlocked);
-        let levelClass = 'level-novice';
-        if (currentLevel === 'intermediate') levelClass = 'level-intermediate';
-        if (currentLevel === 'expert') levelClass = 'level-expert';
-        if (achievementsExpanded) {
-        container.innerHTML = `<div class="achievements-content open"><div class="achievements-section">${achievements.map(a => {
+     const container = document.getElementById('achievements-container');
+    if (!container) return;
+    
+    
+    const unlocked = achievements.filter(a => a.unlocked);
+    const locked = achievements.filter(a => !a.unlocked);
+    
+    
+    const unlockedSorted = [...unlocked].sort((a, b) => (b.unlockedAt || 0) - (a.unlockedAt || 0));
+    
+   
+    const lockedSorted = [...locked].sort((a, b) => a.id - b.id);
+    
+    let levelClass = 'level-novice';
+    if (currentLevel === 'intermediate') levelClass = 'level-intermediate';
+    if (currentLevel === 'expert') levelClass = 'level-expert';
+    
+    if (achievementsExpanded) {
+        
+        const allAchievementsHtml = [...unlockedSorted, ...lockedSorted].map(a => {
             const rc = getRarityClass(a.rarity);
-            // Добавляем класс уровня к каждому достижению
-            return a.unlocked ? 
-                `<span class="achievement-item ${rc} ${levelClass}" title="${a.desc}"><i class="${a.icon}"></i> ${a.name}</span>` :
-                `<span class="achievement-item ${rc} ${levelClass}" style="opacity:0.6;" title="🔒 ${a.desc}"><i class="fas fa-lock"></i> ${a.name}</span>`;
-        }).join('')}</div></div>`;
+            if (a.unlocked) {
+                return `<span class="achievement-item ${rc} ${levelClass}" title="${a.desc}"><i class="${a.icon}"></i> ${a.name}</span>`;
+            } else {
+                return `<span class="achievement-item ${rc} ${levelClass}" style="opacity:0.6;" title="🔒 ${a.desc}"><i class="fas fa-lock"></i> ${a.name}</span>`;
+            }
+        }).join('');
+        
+        container.innerHTML = `<div class="achievements-content open"><div class="achievements-section">${allAchievementsHtml}</div></div>`;
     } else {
-        if(unlocked.length === 0) {
+       
+        if (unlockedSorted.length === 0) {
             container.innerHTML = `<div class="achievements-collapsed"><span style="color: var(--text-muted); font-size: 12px;">Нет достижений</span></div>`;
         } else {
-            container.innerHTML = `<div class="achievements-collapsed">${unlocked.map(a => 
+            container.innerHTML = `<div class="achievements-collapsed">${unlockedSorted.map(a => 
                 `<div class="achievement-icon-only ${levelClass}" title="${a.name} — ${a.desc}"><i class="${a.icon}"></i></div>`
             ).join('')}</div>`;
         }
     }
 }
+
 
     // Обновление UI дашборда
     function updateDashboardUI() {
@@ -333,6 +612,7 @@ document.getElementById('stat-days').textContent = daysCount + (daysCount === 1 
     // Отправка сообщения
     function sendMessage(text) {
         if(!text.trim() || isLoading) return;
+        window.messageCount = (window.messageCount || 0) + 1;
         isLoading = true;
         const sendBtn = document.getElementById('send-btn');
         const chatInput = document.getElementById('chat-input');
@@ -357,6 +637,27 @@ document.getElementById('stat-days').textContent = daysCount + (daysCount === 1 
                 response = 'Интересный вопрос! 👍\n\n**Промпт-инжиниринг** — это искусство составления правильных запросов к AI. Хороший промпт должен быть:\n• **Конкретным** — чётко указывай, что нужно\n• **Контекстным** — давай достаточно информации\n• **Структурированным** — используй форматирование\n\nЧто именно тебя интересует? Могу рассказать про структуру, привести примеры или дать задание!';
             }
             
+        if (lower.includes('завершить модуль') || lower.includes('закончить модуль') || lower.includes('пройти модуль')) {
+            let moduleToComplete = null;
+            for (let i = 0; i < modules.length; i++) {
+                if (lower.includes(modules[i].name.toLowerCase())) {
+                    moduleToComplete = modules[i].id;
+                    break;
+                }
+            }
+            
+            if (moduleToComplete && !completedModules.includes(moduleToComplete)) {
+                completedModules.push(moduleToComplete);
+                const moduleIndex = moduleToComplete - 1;
+                if (progressData[moduleIndex]) {
+                    progressData[moduleIndex].completed = true;
+                    progressData[moduleIndex].score = progressData[moduleIndex].max_score;
+                }
+                checkAndUnlockAchievements();
+                saveProgressToLocalStorage();
+                response += '\n\n✅ Модуль успешно пройден! Ты получаешь максимальные баллы!';
+            }
+        }
             const points = Math.floor(Math.random() * 15) + 5;
             updateStreamingMessage(response, 'TUTOR');
             
@@ -374,6 +675,9 @@ document.getElementById('stat-days').textContent = daysCount + (daysCount === 1 
                 
                 updateDashboardUI();
                 showScoreNotification(points, currentScore);
+                checkAndUnlockAchievements();
+                saveProgressToLocalStorage();
+
                 isLoading = false;
                 if(sendBtn) sendBtn.disabled = false;
                 if(chatInput) chatInput.focus();
@@ -384,6 +688,7 @@ document.getElementById('stat-days').textContent = daysCount + (daysCount === 1 
     // Инициализация дашборда
     document.addEventListener('DOMContentLoaded', () => {
         initTheme();
+        loadProgressFromLocalStorage();
         updateDashboardUI();
         
         const themeToggle = document.getElementById('theme-toggle');
@@ -953,3 +1258,38 @@ document.addEventListener('DOMContentLoaded', () => {
         tour.init();
     }
 });
+
+if (!document.querySelector('#achievement-animations')) {
+    const styleSheet = document.createElement('style');
+    styleSheet.id = 'achievement-animations';
+    styleSheet.textContent = `
+        @keyframes slideInRight {
+            from { opacity: 0; transform: translateX(100px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes slideOutRight {
+            from { opacity: 1; transform: translateX(0); }
+            to { opacity: 0; transform: translateX(100px); }
+        }
+        .achievement-unlock-title {
+            font-size: 11px;
+            color: var(--text-muted);
+            letter-spacing: 0.5px;
+        }
+        .achievement-unlock-name {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--accent-bee);
+        }
+        .achievement-unlock-desc {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+        .achievement-unlock-content {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+    `;
+    document.head.appendChild(styleSheet);
+}
